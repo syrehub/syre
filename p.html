@@ -92,8 +92,8 @@
       e.preventDefault();
 
       const fileInput = document.getElementById('file-upload');
-      const titleInput = document.querySelector('input[type="text"]');
-      const categorySelect = document.querySelector('select');
+      const titleInput = document.querySelector('#media-upload-tab input[type="text"]');
+      const categorySelect = document.querySelector('#media-upload-tab select');
 
       const file = fileInput.files[0];
       const title = titleInput.value;
@@ -104,9 +104,9 @@
         return;
       }
 
-      // Check file size (e.g., limit to 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        alert("File is too large. Maximum size is 10MB.");
+      const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024;
+      if (file.size > MAX_FILE_SIZE) {
+        alert("File is too large. Maximum size is 2GB.");
         return;
       }
 
@@ -114,37 +114,185 @@
       const fileExtension = file.name.split('.').pop();
       const storageRef = storage.ref(`uploads/${timestamp}.${fileExtension}`);
 
+      const uploadProgress = document.createElement('div');
+      uploadProgress.className = 'w-full bg-gray-700 rounded-full h-2.5 mt-4';
+      uploadProgress.innerHTML = `
+        <div id="progress-bar" class="bg-red-600 h-2.5 rounded-full" style="width: 0%"></div>
+        <p id="progress-text" class="text-xs text-gray-300 mt-1">Uploading: 0%</p>
+      `;
+      document.getElementById('upload-preview').appendChild(uploadProgress);
+
       try {
-        const snapshot = await storageRef.put(file);
-        const downloadURL = await snapshot.ref.getDownloadURL();
+        const uploadTask = storageRef.put(file);
+        
+        uploadTask.on('state_changed',
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            document.getElementById('progress-bar').style.width = progress + '%';
+            document.getElementById('progress-text').textContent = `Uploading: ${Math.round(progress)}%`;
+          },
+          (error) => {
+            console.error("Upload error:", error);
+            alert("Upload failed: " + error.message);
+          },
+          async () => {
+            const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
+            console.log("File uploaded successfully at:", downloadURL);
 
-        console.log("File uploaded successfully at:", downloadURL);
+            const preview = document.getElementById('upload-preview');
+            preview.innerHTML = `
+              <div class="bg-gray-800 rounded overflow-hidden shadow-lg">
+                <img src="${downloadURL}" alt="Uploaded File" class="w-full">
+                <div class="p-2 text-sm">${title}</div>
+              </div>
+              <div class="mt-4 p-3 bg-green-900 text-green-200 rounded">
+                File uploaded successfully!
+              </div>`;
 
-        const preview = document.getElementById('upload-preview');
-        preview.innerHTML = `
-          <div class="bg-gray-800 rounded overflow-hidden shadow-lg">
-            <img src="${downloadURL}" alt="Uploaded File" class="w-full">
-            <div class="p-2 text-sm">${title}</div>
-          </div>`;
-
-        fileInput.value = "";
-        titleInput.value = "";
-        categorySelect.selectedIndex = 0;
-
-        alert("File uploaded successfully!");
-
+            fileInput.value = "";
+            titleInput.value = "";
+            categorySelect.selectedIndex = 0;
+          }
+        );
       } catch (error) {
         console.error("Upload failed:", error);
         alert("Upload failed: " + error.message);
       }
     }
 
+    // New functions for enhanced upload section
+    function openUploadTab(tabName) {
+      document.querySelectorAll('.upload-tab-content').forEach(tab => {
+        tab.classList.add('hidden');
+      });
+      
+      document.querySelectorAll('.upload-tab').forEach(tab => {
+        tab.classList.remove('active', 'border-b-2', 'border-red-500');
+      });
+      
+      document.getElementById(`${tabName}-upload-tab`).classList.remove('hidden');
+      event.currentTarget.classList.add('active', 'border-b-2', 'border-red-500');
+    }
+
+    function previewBatchFiles() {
+      const preview = document.getElementById('batch-preview');
+      const files = document.getElementById('batch-file-upload').files;
+      preview.innerHTML = '';
+      
+      Array.from(files).forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          preview.innerHTML += `
+            <div class="relative bg-gray-800 rounded overflow-hidden">
+              <img src="${e.target.result}" alt="Preview ${index + 1}" class="w-full h-32 object-cover">
+              <div class="p-2 text-xs truncate">${file.name}</div>
+              <div class="absolute top-1 right-1 bg-black bg-opacity-70 rounded-full w-6 h-6 flex items-center justify-center text-xs">
+                ${index + 1}
+              </div>
+            </div>`;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function uploadBatchFiles(e) {
+      e.preventDefault();
+      const files = document.getElementById('batch-file-upload').files;
+      const titleInput = document.querySelector('#batch-upload-tab input[type="text"]');
+      const categorySelect = document.querySelector('#batch-upload-tab select');
+      
+      if (files.length === 0) {
+        alert("Please select files to upload");
+        return;
+      }
+
+      const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024;
+      for (let file of files) {
+        if (file.size > MAX_FILE_SIZE) {
+          alert(`File ${file.name} is too large. Maximum size is 2GB.`);
+          return;
+        }
+      }
+
+      const uploadResults = document.createElement('div');
+      uploadResults.className = 'mt-4 space-y-2';
+      document.getElementById('upload-preview').appendChild(uploadResults);
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const timestamp = Date.now();
+        const fileExtension = file.name.split('.').pop();
+        const storageRef = storage.ref(`uploads/batch_${timestamp}_${i}.${fileExtension}`);
+
+        try {
+          const snapshot = await storageRef.put(file);
+          const downloadURL = await snapshot.ref.getDownloadURL();
+          
+          uploadResults.innerHTML += `
+            <div class="p-2 bg-gray-800 rounded">
+              <p class="text-sm">${file.name} uploaded successfully</p>
+              <p class="text-xs text-gray-400 truncate">${downloadURL}</p>
+            </div>`;
+        } catch (error) {
+          console.error(`Upload failed for ${file.name}:`, error);
+          uploadResults.innerHTML += `
+            <div class="p-2 bg-red-900 rounded">
+              <p class="text-sm">Failed to upload ${file.name}</p>
+              <p class="text-xs text-gray-300">${error.message}</p>
+            </div>`;
+        }
+      }
+
+      document.getElementById('batch-file-upload').value = "";
+      titleInput.value = "";
+      categorySelect.selectedIndex = 0;
+    }
+
+    async function importFromUrl(e) {
+      e.preventDefault();
+      const urlInput = document.querySelector('#url-upload-tab input[type="url"]');
+      const categorySelect = document.querySelector('#url-upload-tab select');
+      const url = urlInput.value;
+      const category = categorySelect.value;
+      
+      if (!url || category === 'Choose Category') {
+        alert("Please provide a URL and select a category");
+        return;
+      }
+
+      // In a real implementation, you would process the URL here
+      // This is just a placeholder demonstration
+      const preview = document.getElementById('upload-preview');
+      preview.innerHTML = `
+        <div class="bg-gray-800 rounded p-4">
+          <p class="text-green-400">URL import initiated for:</p>
+          <p class="text-sm break-all">${url}</p>
+          <p class="text-xs text-gray-400 mt-2">Category: ${category}</p>
+          <p class="text-xs text-gray-400 mt-4">Note: This is a demonstration. Actual URL importing would require server-side processing.</p>
+        </div>`;
+
+      urlInput.value = "";
+      categorySelect.selectedIndex = 0;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       auth.onAuthStateChanged((user) => {
         updateUI(user);
       });
+      document.querySelector('.upload-tab').classList.add('active', 'border-b-2', 'border-red-500');
     });
   </script>
+  <style>
+    .upload-tab:hover {
+      color: #f87171;
+    }
+    .upload-tab.active {
+      color: #ef4444;
+    }
+    .border-dashed:hover {
+      border-color: #ef4444;
+    }
+  </style>
 </head>
 <body class="bg-black text-white font-sans">
   <div id="age-gate" class="flex flex-col items-center justify-center h-screen text-center bg-black">
@@ -177,21 +325,88 @@
 
     <section id="upload-section" class="p-6 border-b border-gray-700 hidden">
       <h2 class="text-xl font-semibold mb-6 text-red-400">Upload Your Content</h2>
-      <form class="grid gap-4 max-w-xl mx-auto" onsubmit="uploadFile(event)">
-        <input type="file" id="file-upload" accept="image/*,video/*" onchange="previewFile()" class="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-600 file:text-white hover:file:bg-red-700" required>
+      
+      <div class="flex border-b border-gray-600 mb-6">
+        <button onclick="openUploadTab('media')" class="upload-tab active px-4 py-2 font-medium">Media Upload</button>
+        <button onclick="openUploadTab('batch')" class="upload-tab px-4 py-2 font-medium">Batch Upload</button>
+        <button onclick="openUploadTab('url')" class="upload-tab px-4 py-2 font-medium">URL Import</button>
+      </div>
 
-        <input type="text" placeholder="Enter Title" class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-white" required>
+      <!-- Media Upload Tab -->
+      <div id="media-upload-tab" class="upload-tab-content">
+        <form class="grid gap-4 max-w-xl mx-auto" onsubmit="uploadFile(event)">
+          <input type="file" id="file-upload" accept="image/*,video/*" onchange="previewFile()" 
+                 class="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-600 file:text-white hover:file:bg-red-700" required>
 
-        <select class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 text-white" required>
-          <option value="">Choose Category</option>
-          <option value="Solo">Solo</option>
-          <option value="Couple">Couple</option>
-          <option value="Cosplay">Cosplay</option>
-          <option value="GIF">GIF</option>
-        </select>
+          <input type="text" placeholder="Enter Title" 
+                 class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-white" required>
 
-        <button type="submit" class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded text-white font-semibold">Upload</button>
-      </form>
+          <select class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 text-white" required>
+            <option value="">Choose Category</option>
+            <option value="Solo">Solo</option>
+            <option value="Couple">Couple</option>
+            <option value="Cosplay">Cosplay</option>
+            <option value="GIF">GIF</option>
+          </select>
+
+          <button type="submit" class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded text-white font-semibold">Upload</button>
+        </form>
+      </div>
+
+      <!-- Batch Upload Tab -->
+      <div id="batch-upload-tab" class="upload-tab-content hidden">
+        <form class="grid gap-4 max-w-xl mx-auto" onsubmit="uploadBatchFiles(event)">
+          <div class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-red-500 transition-colors">
+            <input type="file" id="batch-file-upload" multiple accept="image/*,video/*" 
+                   class="hidden" onchange="previewBatchFiles()">
+            <label for="batch-file-upload" class="cursor-pointer">
+              <div class="text-red-400 mb-2">
+                <svg class="w-10 h-10 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+              </div>
+              <p class="text-lg">Drag and drop files here or click to browse</p>
+              <p class="text-sm text-gray-400 mt-1">Upload up to 10 files at once (Max 2GB each)</p>
+            </label>
+          </div>
+          <div id="batch-preview" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4"></div>
+          
+          <input type="text" placeholder="Collection Title (Optional)" 
+                 class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-white">
+          
+          <select class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 text-white" required>
+            <option value="">Choose Category</option>
+            <option value="Solo">Solo</option>
+            <option value="Couple">Couple</option>
+            <option value="Cosplay">Cosplay</option>
+            <option value="GIF">GIF</option>
+          </select>
+          
+          <button type="submit" class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded text-white font-semibold mt-4">
+            Upload All Files
+          </button>
+        </form>
+      </div>
+
+      <!-- URL Import Tab -->
+      <div id="url-upload-tab" class="upload-tab-content hidden">
+        <form class="grid gap-4 max-w-xl mx-auto" onsubmit="importFromUrl(event)">
+          <input type="url" placeholder="Enter content URL" 
+                 class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-white"
+                 required>
+          <select class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 text-white" required>
+            <option value="">Choose Category</option>
+            <option value="Solo">Solo</option>
+            <option value="Couple">Couple</option>
+            <option value="Cosplay">Cosplay</option>
+            <option value="GIF">GIF</option>
+          </select>
+          <button type="submit" class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded text-white font-semibold">
+            Import Content
+          </button>
+        </form>
+      </div>
 
       <div id="upload-preview" class="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
     </section>
