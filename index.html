@@ -30,17 +30,10 @@
       firebase.auth().signInWithPopup(provider)
         .then((result) => {
           localStorage.setItem('loggedIn', 'true');
-          showUploadSection();
         })
         .catch((error) => {
           console.error(error);
         });
-    }
-
-    function showUploadSection() {
-      document.getElementById('login-form').style.display = 'none';
-      document.getElementById('upload-section').classList.remove('hidden');
-      document.getElementById('logout-btn').classList.remove('hidden');
     }
 
     function logout() {
@@ -70,14 +63,28 @@
       }
     }
 
+    function updateUI(user) {
+      const loginForm = document.getElementById('login-form');
+      const uploadSection = document.getElementById('upload-section');
+      const logoutBtn = document.getElementById('logout-btn');
+      const loginButtonNav = document.getElementById('login-btn-nav');
+
+      if (user) {
+        loginForm.style.display = 'none';
+        uploadSection.classList.remove('hidden');
+        logoutBtn.classList.remove('hidden');
+        loginButtonNav.classList.add('hidden');
+      } else {
+        loginForm.style.display = 'block';
+        uploadSection.classList.add('hidden');
+        logoutBtn.classList.add('hidden');
+        loginButtonNav.classList.remove('hidden');
+      }
+    }
+
     window.onload = () => {
       firebase.auth().onAuthStateChanged((user) => {
-        if (user) {
-          localStorage.setItem('loggedIn', 'true');
-          showUploadSection();
-        } else {
-          localStorage.removeItem('loggedIn');
-        }
+        updateUI(user);
       });
     }
   </script>
@@ -99,6 +106,7 @@
         <a href="#upload-section" class="hover:text-red-400">Upload</a>
         <a href="#" class="hover:text-red-400">Categories</a>
         <a href="#" class="hover:text-red-400">Account</a>
+        <button id="login-btn-nav" onclick="signInWithGoogle()" class="ml-4 bg-red-600 hover:bg-red-700 px-3 py-1 rounded">Login</button>
         <button id="logout-btn" onclick="logout()" class="ml-4 bg-red-600 hover:bg-red-700 px-3 py-1 rounded hidden">Logout</button>
       </nav>
     </header>
