@@ -93,14 +93,16 @@
 
       const fileInput = document.getElementById('file-upload');
       const titleInput = document.querySelector('#media-upload-tab input[type="text"]');
+      const descriptionInput = document.querySelector('#media-upload-tab textarea');
       const categorySelect = document.querySelector('#media-upload-tab select');
 
       const file = fileInput.files[0];
       const title = titleInput.value;
+      const description = descriptionInput.value;
       const category = categorySelect.value;
 
       if (!file || !title || category === 'Choose Category') {
-        alert("Please fill in all fields.");
+        alert("Please fill in all required fields.");
         return;
       }
 
@@ -143,7 +145,11 @@
             preview.innerHTML = `
               <div class="bg-gray-800 rounded overflow-hidden shadow-lg">
                 <img src="${downloadURL}" alt="Uploaded File" class="w-full">
-                <div class="p-2 text-sm">${title}</div>
+                <div class="p-4">
+                  <h3 class="text-lg font-semibold">${title}</h3>
+                  ${description ? `<p class="text-gray-300 mt-2">${description}</p>` : ''}
+                  <p class="text-xs text-gray-500 mt-2">Category: ${category}</p>
+                </div>
               </div>
               <div class="mt-4 p-3 bg-green-900 text-green-200 rounded">
                 File uploaded successfully!
@@ -151,6 +157,7 @@
 
             fileInput.value = "";
             titleInput.value = "";
+            descriptionInput.value = "";
             categorySelect.selectedIndex = 0;
           }
         );
@@ -160,7 +167,6 @@
       }
     }
 
-    // New functions for enhanced upload section
     function openUploadTab(tabName) {
       document.querySelectorAll('.upload-tab-content').forEach(tab => {
         tab.classList.add('hidden');
@@ -199,6 +205,7 @@
       e.preventDefault();
       const files = document.getElementById('batch-file-upload').files;
       const titleInput = document.querySelector('#batch-upload-tab input[type="text"]');
+      const descriptionInput = document.querySelector('#batch-upload-tab textarea');
       const categorySelect = document.querySelector('#batch-upload-tab select');
       
       if (files.length === 0) {
@@ -229,9 +236,25 @@
           const downloadURL = await snapshot.ref.getDownloadURL();
           
           uploadResults.innerHTML += `
-            <div class="p-2 bg-gray-800 rounded">
-              <p class="text-sm">${file.name} uploaded successfully</p>
-              <p class="text-xs text-gray-400 truncate">${downloadURL}</p>
+            <div class="p-4 bg-gray-800 rounded-lg">
+              <div class="flex items-start">
+                <div class="flex-shrink-0 h-16 w-16 bg-gray-700 rounded overflow-hidden">
+                  ${file.type.startsWith('image/') ? 
+                    `<img src="${downloadURL}" alt="Thumbnail" class="h-full w-full object-cover">` : 
+                    `<div class="h-full w-full flex items-center justify-center text-red-400">
+                      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                    </div>`}
+                </div>
+                <div class="ml-4">
+                  <h4 class="text-sm font-medium">${titleInput.value || 'Untitled'} ${i + 1}</h4>
+                  ${descriptionInput.value ? `<p class="text-xs text-gray-400 mt-1">${descriptionInput.value}</p>` : ''}
+                  <p class="text-xs text-gray-500 mt-1">Category: ${categorySelect.value}</p>
+                  <p class="text-xs text-green-400 mt-2">Upload successful</p>
+                </div>
+              </div>
             </div>`;
         } catch (error) {
           console.error(`Upload failed for ${file.name}:`, error);
@@ -245,33 +268,49 @@
 
       document.getElementById('batch-file-upload').value = "";
       titleInput.value = "";
+      descriptionInput.value = "";
       categorySelect.selectedIndex = 0;
     }
 
     async function importFromUrl(e) {
       e.preventDefault();
       const urlInput = document.querySelector('#url-upload-tab input[type="url"]');
+      const titleInput = document.querySelector('#url-upload-tab input[type="text"]');
+      const descriptionInput = document.querySelector('#url-upload-tab textarea');
       const categorySelect = document.querySelector('#url-upload-tab select');
       const url = urlInput.value;
+      const title = titleInput.value;
+      const description = descriptionInput.value;
       const category = categorySelect.value;
       
-      if (!url || category === 'Choose Category') {
-        alert("Please provide a URL and select a category");
+      if (!url || !title || category === 'Choose Category') {
+        alert("Please fill in all required fields");
         return;
       }
 
-      // In a real implementation, you would process the URL here
-      // This is just a placeholder demonstration
       const preview = document.getElementById('upload-preview');
       preview.innerHTML = `
-        <div class="bg-gray-800 rounded p-4">
-          <p class="text-green-400">URL import initiated for:</p>
-          <p class="text-sm break-all">${url}</p>
-          <p class="text-xs text-gray-400 mt-2">Category: ${category}</p>
-          <p class="text-xs text-gray-400 mt-4">Note: This is a demonstration. Actual URL importing would require server-side processing.</p>
+        <div class="bg-gray-800 rounded-lg p-6">
+          <div class="bg-gray-700 h-48 rounded flex items-center justify-center">
+            <svg class="w-16 h-16 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <div class="mt-4">
+            <h3 class="text-lg font-medium">${title}</h3>
+            ${description ? `<p class="text-gray-300 mt-2">${description}</p>` : ''}
+            <p class="text-xs text-gray-500 mt-3">URL: <span class="break-all">${url}</span></p>
+            <p class="text-xs text-gray-500 mt-1">Category: ${category}</p>
+            <div class="mt-4 p-2 bg-blue-900 text-blue-200 rounded text-sm">
+              Note: URL importing requires backend implementation to actually fetch the content.
+            </div>
+          </div>
         </div>`;
 
       urlInput.value = "";
+      titleInput.value = "";
+      descriptionInput.value = "";
       categorySelect.selectedIndex = 0;
     }
 
@@ -291,6 +330,9 @@
     }
     .border-dashed:hover {
       border-color: #ef4444;
+    }
+    textarea {
+      min-height: 100px;
     }
   </style>
 </head>
@@ -341,6 +383,9 @@
           <input type="text" placeholder="Enter Title" 
                  class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-white" required>
 
+          <textarea id="video-description" placeholder="Enter video description (optional)" 
+                    class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-white"></textarea>
+
           <select class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 text-white" required>
             <option value="">Choose Category</option>
             <option value="Solo">Solo</option>
@@ -372,8 +417,11 @@
           </div>
           <div id="batch-preview" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4"></div>
           
-          <input type="text" placeholder="Collection Title (Optional)" 
-                 class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-white">
+          <input type="text" placeholder="Collection Title" 
+                 class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-white" required>
+          
+          <textarea placeholder="Collection Description (optional)" 
+                   class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-white"></textarea>
           
           <select class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 text-white" required>
             <option value="">Choose Category</option>
@@ -395,6 +443,13 @@
           <input type="url" placeholder="Enter content URL" 
                  class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-white"
                  required>
+          
+          <input type="text" placeholder="Enter Title" 
+                 class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-white" required>
+          
+          <textarea placeholder="Enter Description (optional)" 
+                   class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-white"></textarea>
+          
           <select class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 text-white" required>
             <option value="">Choose Category</option>
             <option value="Solo">Solo</option>
@@ -402,27 +457,32 @@
             <option value="Cosplay">Cosplay</option>
             <option value="GIF">GIF</option>
           </select>
+          
           <button type="submit" class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded text-white font-semibold">
             Import Content
           </button>
         </form>
       </div>
 
-      <div id="upload-preview" class="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      <div id="upload-preview" class="mt-8"></div>
     </section>
 
     <main class="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      <!-- Sample content remains unchanged -->
       <div class="bg-gray-800 rounded overflow-hidden shadow-lg">
         <img src="https://placehold.co/400x225/000000/FF0000?text=Video+1" alt="Video 1" class="w-full">
-        <div class="p-2 text-sm">Hot Scene #1</div>
+        <div class="p-4">
+          <h3 class="text-lg font-semibold">Sample Video 1</h3>
+          <p class="text-gray-300 text-sm mt-1">This is an example video description</p>
+          <p class="text-xs text-gray-500 mt-2">Category: Solo</p>
+        </div>
       </div>
       <div class="bg-gray-800 rounded overflow-hidden shadow-lg">
         <img src="https://placehold.co/400x225/000000/FF0000?text=Video+2" alt="Video 2" class="w-full">
-        <div class="p-2 text-sm">Exclusive Clip #2</div>
-      </div>
-      <div class="bg-gray-800 rounded overflow-hidden shadow-lg">
-        <img src="https://placehold.co/400x225/000000/FF0000?text=Image+Gallery" alt="Image" class="w-full">
-        <div class="p-2 text-sm">Photo Set #3</div>
+        <div class="p-4">
+          <h3 class="text-lg font-semibold">Sample Video 2</h3>
+          <p class="text-xs text-gray-500 mt-2">Category: Couple</p>
+        </div>
       </div>
     </main>
 
