@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Syre - 18+ Only</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-storage-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAO3m2K6lRmQYe9X7g6asK7LznyewvTPLE",
+      authDomain: "syrehub.firebaseapp.com",
+      projectId: "syrehub",
+      storageBucket: "syrehub.appspot.com",
+      messagingSenderId: "1042429909062",
+      appId: "1:1042429909062:web:5b86700fec17bd95119247",
+      measurementId: "G-4YP7RFHKVG"
+    };
+
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const storage = firebase.storage();
+
+    function enterSite() {
+      document.getElementById('age-gate').style.display = 'none';
+      document.getElementById('main-site').style.display = 'block';
+    }
+
+    function signInWithGoogle() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider)
+        .then((result) => {
+          localStorage.setItem('loggedIn', 'true');
+        })
+        .catch((error) => {
+          console.error(error);
+          alert("Login failed: " + error.message);
+        });
+    }
+
+    function logout() {
+      auth.signOut().then(() => {
+        localStorage.removeItem('loggedIn');
+        location.reload();
+      }).catch((error) => {
+        console.error(error);
+        alert("Logout failed: " + error.message);
+      });
+    }
+
+    function previewFile() {
+      const preview = document.getElementById('upload-preview');
+      const file = document.getElementById('file-upload').files[0];
+      const reader = new FileReader();
+
+      reader.addEventListener("load", function () {
+        preview.innerHTML = `
+          <div class="bg-gray-800 rounded overflow-hidden shadow-lg">
+            <img src="${reader.result}" alt="Upload Preview" class="w-full">
+            <div class="p-2 text-sm">Uploaded Preview</div>
+          </div>`;
+      }, false);
+
+      if (file) {
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function updateUI(user) {
+      const loginForm = document.getElementById('login-form');
+      const uploadSection = document.getElementById('upload-section');
+      const logoutBtn = document.getElementById('logout-btn');
+      const loginButtonNav = document.getElementById('login-btn-nav');
+
+      if (user) {
+        loginForm.style.display = 'none';
+        uploadSection.classList.remove('hidden');
+        logoutBtn.classList.remove('hidden');
+        loginButtonNav.classList.add('hidden');
+      } else {
+        loginForm.style.display = 'block';
+        uploadSection.classList.add('hidden');
+        logoutBtn.classList.add('hidden');
+        loginButtonNav.classList.remove('hidden');
+      }
+    }
+
+    async function uploadFile(e) {
+      e.preventDefault();
+
+      const fileInput = document.getElementById('file-upload');
+      const titleInput = document.querySelector('#media-upload-tab input[type="text"]');
+      const categorySelect = document.querySelector('#media-upload-tab select');
+
+      const file = fileInput.files[0];
+      const title = titleInput.value;
+      const category = categorySelect.value;
+
+      if (!file || !title || category === 'Choose Category') {
+        alert("Please fill in all fields.");
+        return;
+      }
+
+      const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024;
+      if (file.size > MAX_FILE_SIZE) {
+        alert("File is too large. Maximum size is 2GB.");
+        return;
+      }
+
+      const timestamp = Date.now();
+      const fileExtension = file.name.split('.').pop();
+      const storageRef = storage.ref(`uploads/${timestamp}.${fileExtension}`);
+
+      const uploadProgress = document.createElement('div');
+      uploadProgress.className = 'w-full bg-gray-700 rounded-full h-2.5 mt-4';
+      uploadProgress.innerHTML = `
+        <div id="progress-bar" class="bg-red-600 h-2.5 rounded-full" style="width: 0%"></div>
+        <p id="progress-text" class="text-xs text-gray-300 mt-1">Uploading: 0%</p>
+      `;
+      document.getElementById('upload-preview').appendChild(uploadProgress);
+
+      try {
+        const uploadTask = storageRef.put(file);
+        
+        uploadTask.on('state_changed',
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            document.getElementById('progress-bar').style.width = progress + '%';
+            document.getElementById('progress-text').textContent = `Uploading: ${Math.round(progress)}%`;
+          },
+          (error) => {
+            console.error("Upload error:", error);
+            alert("Upload failed: " + error.message);
+          },
+          async () => {
+            const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
+            console.log("File uploaded successfully at:", downloadURL);
+
+            const preview = document.getElementById('upload-preview');
+            preview.innerHTML = `
+              <div class="bg-gray-800 rounded overflow-hidden shadow-lg">
+                <img src="${downloadURL}" alt="Uploaded File" class="w-full">
+                <div class="p-2 text-sm">${title}</div>
+              </div>
+              <div class="mt-4 p-3 bg-green-900 text-green-200 rounded">
+                File uploaded successfully!
+              </div>`;
+
+            fileInput.value = "";
+            titleInput.value = "";
+            categorySelect.selectedIndex = 0;
+          }
+        );
+      } catch (error) {
+        console.error("Upload failed:", error);
+        alert("Upload failed: " + error.message);
+      }
+    }
+
+    // New functions for enhanced upload section
+    function openUploadTab(tabName) {
+      document.querySelectorAll('.upload-tab-content').forEach(tab => {
+        tab.classList.add('hidden');
+      });
+      
+      document.querySelectorAll('.upload-tab').forEach(tab => {
+        tab.classList.remove('active', 'border-b-2', 'border-red-500');
+      });
+      
+      document.getElementById(`${tabName}-upload-tab`).classList.remove('hidden');
+      event.currentTarget.classList.add('active', 'border-b-2', 'border-red-500');
+    }
+
+    function previewBatchFiles() {
+      const preview = document.getElementById('batch-preview');
+      const files = document.getElementById('batch-file-upload').files;
+      preview.innerHTML = '';
+      
+      Array.from(files).forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          preview.innerHTML += `
+            <div class="relative bg-gray-800 rounded overflow-hidden">
+              <img src="${e.target.result}" alt="Preview ${index + 1}" class="w-full h-32 object-cover">
+              <div class="p-2 text-xs truncate">${file.name}</div>
+              <div class="absolute top-1 right-1 bg-black bg-opacity-70 rounded-full w-6 h-6 flex items-center justify-center text-xs">
+                ${index + 1}
+              </div>
+            </div>`;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function uploadBatchFiles(e) {
+      e.preventDefault();
+      const files = document.getElementById('batch-file-upload').files;
+      const titleInput = document.querySelector('#batch-upload-tab input[type="text"]');
+      const categorySelect = document.querySelector('#batch-upload-tab select');
+      
+      if (files.length === 0) {
+        alert("Please select files to upload");
+        return;
+      }
+
+      const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024;
+      for (let file of files) {
+        if (file.size > MAX_FILE_SIZE) {
+          alert(`File ${file.name} is too large. Maximum size is 2GB.`);
+          return;
+        }
+      }
+
+      const uploadResults = document.createElement('div');
+      uploadResults.className = 'mt-4 space-y-2';
+      document.getElementById('upload-preview').appendChild(uploadResults);
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const timestamp = Date.now();
+        const fileExtension = file.name.split('.').pop();
+        const storageRef = storage.ref(`uploads/batch_${timestamp}_${i}.${fileExtension}`);
+
+        try {
+          const snapshot = await storageRef.put(file);
+          const downloadURL = await snapshot.ref.getDownloadURL();
+          
+          uploadResults.innerHTML += `
+            <div class="p-2 bg-gray-800 rounded">
+              <p class="text-sm">${file.name} uploaded successfully</p>
+              <p class="text-xs text-gray-400 truncate">${downloadURL}</p>
+            </div>`;
+        } catch (error) {
+          console.error(`Upload failed for ${file.name}:`, error);
+          uploadResults.innerHTML += `
+            <div class="p-2 bg-red-900 rounded">
+              <p class="text-sm">Failed to upload ${file.name}</p>
+              <p class="text-xs text-gray-300">${error.message}</p>
+            </div>`;
+        }
+      }
+
+      document.getElementById('batch-file-upload').value = "";
+      titleInput.value = "";
+      categorySelect.selectedIndex = 0;
+    }
+
+    async function importFromUrl(e) {
+      e.preventDefault();
+      const urlInput = document.querySelector('#url-upload-tab input[type="url"]');
+      const categorySelect = document.querySelector('#url-upload-tab select');
+      const url = urlInput.value;
+      const category = categorySelect.value;
+      
+      if (!url || category === 'Choose Category') {
+        alert("Please provide a URL and select a category");
+        return;
+      }
+
+      // In a real implementation, you would process the URL here
+      // This is just a placeholder demonstration
+      const preview = document.getElementById('upload-preview');
+      preview.innerHTML = `
+        <div class="bg-gray-800 rounded p-4">
+          <p class="text-green-400">URL import initiated for:</p>
+          <p class="text-sm break-all">${url}</p>
+          <p class="text-xs text-gray-400 mt-2">Category: ${category}</p>
+          <p class="text-xs text-gray-400 mt-4">Note: This is a demonstration. Actual URL importing would require server-side processing.</p>
+        </div>`;
+
+      urlInput.value = "";
+      categorySelect.selectedIndex = 0;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      auth.onAuthStateChanged((user) => {
+        updateUI(user);
+      });
+      document.querySelector('.upload-tab').classList.add('active', 'border-b-2', 'border-red-500');
+    });
+  </script>
+  <style>
+    .upload-tab:hover {
+      color: #f87171;
+    }
+    .upload-tab.active {
+      color: #ef4444;
+    }
+    .border-dashed:hover {
+      border-color: #ef4444;
+    }
+  </style>
+</head>
+<body class="bg-black text-white font-sans">
+  <div id="age-gate" class="flex flex-col items-center justify-center h-screen text-center bg-black">
+    <h1 class="text-4xl font-bold mb-4 text-red-500">Welcome to Syre</h1>
+    <p class="mb-6 text-lg">This site contains adult content. You must be 18 years or older to enter.</p>
+    <button onclick="enterSite()" class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded text-white font-semibold">I am 18 or older</button>
+  </div>
+
+  <div id="main-site" style="display:none">
+    <header class="flex flex-col sm:flex-row items-center justify-between p-4 border-b border-gray-700 gap-4">
+      <h1 class="text-2xl font-bold text-red-500">Syre</h1>
+      <div class="flex flex-wrap gap-4 items-center w-full sm:w-auto">
+        <nav class="flex gap-4 flex-wrap items-center">
+          <a href="#" class="hover:text-red-400">Home</a>
+          <a href="#upload-section" class="hover:text-red-400">Upload</a>
+          <a href="#" class="hover:text-red-400">Categories</a>
+          <a href="#" class="hover:text-red-400">Account</a>
+        </nav>
+        <input type="text" placeholder="Search videos..." class="bg-gray-900 border border-gray-700 px-3 py-1 rounded text-sm text-white w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-red-500" />
+        <button id="login-btn-nav" onclick="signInWithGoogle()" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded">Login</button>
+        <button id="logout-btn" onclick="logout()" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded hidden">Logout</button>
+      </div>
+    </header>
+
+    <section id="login-form" class="p-6 text-center">
+      <h2 class="text-xl font-semibold mb-4 text-red-400">Login to Upload</h2>
+      <p class="mb-4 text-sm text-gray-300">Only registered users can upload content.</p>
+      <button onclick="signInWithGoogle()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded">Login with Google</button>
+    </section>
+
+    <section id="upload-section" class="p-6 border-b border-gray-700 hidden">
+      <h2 class="text-xl font-semibold mb-6 text-red-400">Upload Your Content</h2>
+      
+      <div class="flex border-b border-gray-600 mb-6">
+        <button onclick="openUploadTab('media')" class="upload-tab active px-4 py-2 font-medium">Media Upload</button>
+        <button onclick="openUploadTab('batch')" class="upload-tab px-4 py-2 font-medium">Batch Upload</button>
+        <button onclick="openUploadTab('url')" class="upload-tab px-4 py-2 font-medium">URL Import</button>
+      </div>
+
+      <!-- Media Upload Tab -->
+      <div id="media-upload-tab" class="upload-tab-content">
+        <form class="grid gap-4 max-w-xl mx-auto" onsubmit="uploadFile(event)">
+          <input type="file" id="file-upload" accept="image/*,video/*" onchange="previewFile()" 
+                 class="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-600 file:text-white hover:file:bg-red-700" required>
+
+          <input type="text" placeholder="Enter Title" 
+                 class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-white" required>
+
+          <select class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 text-white" required>
+            <option value="">Choose Category</option>
+            <option value="Solo">Solo</option>
+            <option value="Couple">Couple</option>
+            <option value="Cosplay">Cosplay</option>
+            <option value="GIF">GIF</option>
+          </select>
+
+          <button type="submit" class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded text-white font-semibold">Upload</button>
+        </form>
+      </div>
+
+      <!-- Batch Upload Tab -->
+      <div id="batch-upload-tab" class="upload-tab-content hidden">
+        <form class="grid gap-4 max-w-xl mx-auto" onsubmit="uploadBatchFiles(event)">
+          <div class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-red-500 transition-colors">
+            <input type="file" id="batch-file-upload" multiple accept="image/*,video/*" 
+                   class="hidden" onchange="previewBatchFiles()">
+            <label for="batch-file-upload" class="cursor-pointer">
+              <div class="text-red-400 mb-2">
+                <svg class="w-10 h-10 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+              </div>
+              <p class="text-lg">Drag and drop files here or click to browse</p>
+              <p class="text-sm text-gray-400 mt-1">Upload up to 10 files at once (Max 2GB each)</p>
+            </label>
+          </div>
+          <div id="batch-preview" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4"></div>
+          
+          <input type="text" placeholder="Collection Title (Optional)" 
+                 class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-white">
+          
+          <select class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 text-white" required>
+            <option value="">Choose Category</option>
+            <option value="Solo">Solo</option>
+            <option value="Couple">Couple</option>
+            <option value="Cosplay">Cosplay</option>
+            <option value="GIF">GIF</option>
+          </select>
+          
+          <button type="submit" class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded text-white font-semibold mt-4">
+            Upload All Files
+          </button>
+        </form>
+      </div>
+
+      <!-- URL Import Tab -->
+      <div id="url-upload-tab" class="upload-tab-content hidden">
+        <form class="grid gap-4 max-w-xl mx-auto" onsubmit="importFromUrl(event)">
+          <input type="url" placeholder="Enter content URL" 
+                 class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-white"
+                 required>
+          <select class="w-full px-4 py-2 rounded bg-gray-900 border border-gray-700 text-white" required>
+            <option value="">Choose Category</option>
+            <option value="Solo">Solo</option>
+            <option value="Couple">Couple</option>
+            <option value="Cosplay">Cosplay</option>
+            <option value="GIF">GIF</option>
+          </select>
+          <button type="submit" class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded text-white font-semibold">
+            Import Content
+          </button>
+        </form>
+      </div>
+
+      <div id="upload-preview" class="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+
+    <main class="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      <div class="bg-gray-800 rounded overflow-hidden shadow-lg">
+        <img src="https://placehold.co/400x225/000000/FF0000?text=Video+1" alt="Video 1" class="w-full">
+        <div class="p-2 text-sm">Hot Scene #1</div>
+      </div>
+      <div class="bg-gray-800 rounded overflow-hidden shadow-lg">
+        <img src="https://placehold.co/400x225/000000/FF0000?text=Video+2" alt="Video 2" class="w-full">
+        <div class="p-2 text-sm">Exclusive Clip #2</div>
+      </div>
+      <div class="bg-gray-800 rounded overflow-hidden shadow-lg">
+        <img src="https://placehold.co/400x225/000000/FF0000?text=Image+Gallery" alt="Image" class="w-full">
+        <div class="p-2 text-sm">Photo Set #3</div>
+      </div>
+    </main>
+
+    <footer class="p-4 text-center text-gray-400 text-sm border-t border-gray-700">
+      &copy; 2025 Syre. All rights reserved.
+    </footer>
+  </div>
+</body>
+</html>
