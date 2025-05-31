@@ -4,13 +4,57 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Syre - 18+ Only</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAO3m2K6lRmQYe9X7g6asK7LznyewvTPLE",
+      authDomain: "syrehub.firebaseapp.com",
+      projectId: "syrehub",
+      storageBucket: "syrehub.firebasestorage.app",
+      messagingSenderId: "1042429909062",
+      appId: "1:1042429909062:web:5b86700fec17bd95119247",
+      measurementId: "G-4YP7RFHKVG"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+
     function enterSite() {
       document.getElementById('age-gate').style.display = 'none';
       document.getElementById('main-site').style.display = 'block';
     }
+
+    function signInWithGoogle() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      firebase.auth().signInWithPopup(provider)
+        .then((result) => {
+          document.getElementById('login-form').style.display = 'none';
+          document.getElementById('upload-section').classList.remove('hidden');
+        })
+        .catch((error) => {
+          console.error(error);
+        });
+    }
+
+    function previewFile() {
+      const preview = document.getElementById('upload-preview');
+      const file = document.getElementById('file-upload').files[0];
+      const reader = new FileReader();
+
+      reader.addEventListener("load", function () {
+        preview.innerHTML = `
+          <div class="bg-gray-800 rounded overflow-hidden shadow-lg">
+            <img src="${reader.result}" alt="Upload Preview" class="w-full">
+            <div class="p-2 text-sm">Uploaded Preview</div>
+          </div>`;
+      }, false);
+
+      if (file) {
+        reader.readAsDataURL(file);
+      }
+    }
   </script>
-  <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-black text-white font-sans">
   <!-- Age Gate -->
@@ -26,14 +70,28 @@
       <h1 class="text-2xl font-bold text-red-500">Syre</h1>
       <nav class="space-x-4">
         <a href="#" class="hover:text-red-400">Home</a>
+        <a href="#upload-section" class="hover:text-red-400">Upload</a>
         <a href="#" class="hover:text-red-400">Categories</a>
-        <a href="#" class="hover:text-red-400">Upload</a>
         <a href="#" class="hover:text-red-400">Account</a>
       </nav>
     </header>
 
+    <!-- Login Prompt -->
+    <section id="login-form" class="p-6 text-center">
+      <h2 class="text-xl font-semibold mb-4 text-red-400">Login to Upload</h2>
+      <p class="mb-4 text-sm text-gray-300">Only registered users can upload content.</p>
+      <button onclick="signInWithGoogle()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded">Login with Google</button>
+    </section>
+
+    <!-- Upload Section (Hidden until login) -->
+    <section id="upload-section" class="p-6 border-b border-gray-700 hidden">
+      <h2 class="text-xl font-semibold mb-4 text-red-400">Upload Your Content</h2>
+      <input type="file" id="file-upload" accept="image/*,video/*" onchange="previewFile()" class="mb-4 text-white">
+      <div id="upload-preview" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+
+    <!-- Gallery -->
     <main class="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      <!-- Gallery items -->
       <div class="bg-gray-800 rounded overflow-hidden shadow-lg">
         <img src="https://placehold.co/400x225/000000/FF0000?text=Video+1" alt="Video 1" class="w-full">
         <div class="p-2 text-sm">Hot Scene #1</div>
@@ -46,7 +104,6 @@
         <img src="https://placehold.co/400x225/000000/FF0000?text=Image+Gallery" alt="Image" class="w-full">
         <div class="p-2 text-sm">Photo Set #3</div>
       </div>
-      <!-- Add more as needed -->
     </main>
 
     <footer class="p-4 text-center text-gray-400 text-sm border-t border-gray-700">
